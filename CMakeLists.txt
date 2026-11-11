@@ -113,7 +113,12 @@ if(WIN32)
         PUBLIC
         "${POSTGRESQL_ROOT}/lib/libpq.lib"
     )
+else()
+    find_package(PostgreSQL REQUIRED)
+    target_link_libraries(ragcpp PUBLIC PostgreSQL::PostgreSQL)
 endif()
+
+
 
 
 # The plugin loader uses dlopen/dlsym (POSIX) — link the platform's dl library.
@@ -348,6 +353,7 @@ if(RAGCPP_IS_TOPLEVEL)
 # downstream project can simply:
 #     find_package(ragcpp CONFIG REQUIRED)
 #     target_link_libraries(app PRIVATE ragcpp::ragcpp)
+
 install(TARGETS ragcpp EXPORT ragcppTargets
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}

@@ -59,6 +59,9 @@ jobs:
           fi
           echo "no sibling rcp/ — FetchContent is the only way to resolve the SDK"
 
+      - name: Install PostgreSQL development files
+        run: sudo apt-get update && sudo apt-get install -y libpq-dev
+
       - name: Configure
         working-directory: solo/rag-cpp
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
@@ -126,9 +129,17 @@ jobs:
           # tests the code being COMPILED out, this tests it compiled IN and
           # declining at run time.
           - name: macos / clang + metal
-            os: macos-14
+            os: macos-15
     steps:
       - uses: actions/checkout@v4
+      - name: Install PostgreSQL development files on macOS
+        if: runner.os == 'macOS'
+        run: |
+          brew install libpq
+          echo "$(brew --prefix libpq)/bin" >> "$GITHUB_PATH"
+      - name: Install PostgreSQL development files on Linux
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libpq-dev
       - run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
       - run: cmake --build build -j 8
       # Neither runner has a usable GPU, and ubuntu-latest ships a SOFTWARE
@@ -146,9 +157,13 @@ jobs:
   # on a developer Mac ever compiles with Metal off.
   no-metal:
     name: macos / metal disabled
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
+      - name: Install PostgreSQL development files
+        run: |
+          brew install libpq
+          echo "$(brew --prefix libpq)/bin" >> "$GITHUB_PATH"
       - run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DRAGCPP_WITH_METAL=OFF
       - run: cmake --build build -j 8
       - run: ctest --test-dir build --output-on-failure
@@ -166,7 +181,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install the OpenCL headers and an ICD loader
-        run: sudo apt-get update && sudo apt-get install -y opencl-headers ocl-icd-opencl-dev
+        run: sudo apt-get update && sudo apt-get install -y libpq-dev opencl-headers ocl-icd-opencl-dev
       - name: Configure with OpenCL required
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DRAGCPP_WITH_OPENCL=ON
       - name: Assert the backend was actually compiled in
@@ -223,8 +238,12 @@ jobs:
   # confirming the same on the other toolchains.
   warnings:
     name: macos / -Werror
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
+      - name: Install PostgreSQL development files
+        run: |
+          brew install libpq
+          echo "$(brew --prefix libpq)/bin" >> "$GITHUB_PATH"
       - run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DRAGCPP_WERROR=ON
       - run: cmake --build build -j 8
