@@ -1,5 +1,13 @@
-#include <winsock2.h>
-#include <ws2tcpip.h>
+#if defined(_WIN32)
+#  include <winsock2.h>
+#  include <ws2tcpip.h>
+#else
+#  include <arpa/inet.h>
+#  include <netinet/in.h>
+#  include <sys/socket.h>
+#  include <sys/types.h>
+#  include <unistd.h>
+#endif
 
 #include <rag/engine.hpp>
 #include <rag/security/authorization.hpp>
@@ -10,6 +18,8 @@
 #include <cstdint>
 #include <algorithm>
 #include <chrono>
+#include <cstdlib>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -18,6 +28,41 @@
 #include <unordered_set>
 
 namespace {
+
+#if defined(_WIN32)
+using socket_t = SOCKET;
+constexpr socket_t kInvalidSocket = INVALID_SOCKET;
+constexpr int kSocketError = SOCKET_ERROR;
+inline void close_socket(socket_t s) { closesocket(s); }
+#else
+using socket_t = int;
+constexpr socket_t kInvalidSocket = -1;
+constexpr int kSocketError = -1;
+inline void close_socket(socket_t s) { ::close(s); }
+#endif
+
+std::filesystem::path resolve_repo_path(const std::filesystem::path& relative_path) {
+    for (auto current = std::filesystem::current_path(); ; current = current.parent_path()) {
+        const auto candidate = current / relative_path;
+        if (std::filesystem::exists(candidate)) {
+            return candidate;
+        }
+        if (current == current.parent_path()) {
+            break;
+        }
+    }
+
+    if (const char* root = std::getenv("RAG_ROOT")) {
+        if (*root != '\0') {
+            const auto candidate = std::filesystem::path(root) / relative_path;
+            if (std::filesystem::exists(candidate)) {
+                return candidate;
+            }
+        }
+    }
+
+    return std::filesystem::current_path() / relative_path;
+}
 
 constexpr std::uint16_t PORT = 8000;
 constexpr int BUFFER_SIZE = 8192;
@@ -28,7 +73,7 @@ constexpr int BUFFER_SIZE = 8192;
 // ============================================================
 
 void send_response(
-    SOCKET client,
+    socket_t client,
     int status_code,
     const std::string& status,
     const std::string& content_type,
@@ -121,12 +166,11 @@ std::string get_header(
 // ============================================================
 
 bool serve_static_file(
-    SOCKET client,
+    socket_t client,
     const std::string& path) {
 
-    std::string file_path;
+    std::filesystem::path file_path;
     std::string content_type;
-
 
     // --------------------------------------------------------
     // Allowed frontend files
@@ -134,33 +178,23 @@ bool serve_static_file(
 
     if (path == "/") {
 
-        file_path =
-            "C:\\Users\\hp\\rag-cpp\\web\\index.html";
-
-        content_type =
-            "text/html; charset=utf-8";
+        file_path = resolve_repo_path("web/index.html");
+        content_type = "text/html; charset=utf-8";
     }
     else if (path == "/style.css") {
 
-        file_path =
-            "C:\\Users\\hp\\rag-cpp\\web\\style.css";
-
-        content_type =
-            "text/css; charset=utf-8";
+        file_path = resolve_repo_path("web/style.css");
+        content_type = "text/css; charset=utf-8";
     }
     else if (path == "/app.js") {
 
-        file_path =
-            "C:\\Users\\hp\\rag-cpp\\web\\app.js";
-
-        content_type =
-            "application/javascript; charset=utf-8";
+        file_path = resolve_repo_path("web/app.js");
+        content_type = "application/javascript; charset=utf-8";
     }
     else {
 
         return false;
     }
-
 
     // --------------------------------------------------------
     // Open file
@@ -170,33 +204,25 @@ bool serve_static_file(
         file_path,
         std::ios::binary);
 
-
     if (!file) {
-
         send_response(
             client,
             404,
             "Not Found",
             "application/json",
             json_error(
-                "Frontend file not found: " +
-                file_path));
+                "Frontend file not found: " + file_path.string()));
 
         return true;
     }
-
 
     // --------------------------------------------------------
     // Read file
     // --------------------------------------------------------
 
     std::ostringstream contents;
-
     contents << file.rdbuf();
-
-    const std::string body =
-        contents.str();
-
+    const std::string body = contents.str();
 
     // --------------------------------------------------------
     // Send file
@@ -218,14 +244,12 @@ bool serve_static_file(
 // ============================================================
 
 void handle_request(
-    SOCKET client,
+    socket_t client,
     rag::Engine& engine,
     const rag::security::AuthenticationService& auth_service) {
 
     std::string request;
-
     char buffer[BUFFER_SIZE];
-
 
     // --------------------------------------------------------
     // Read until complete HTTP headers
@@ -242,17 +266,14 @@ void handle_request(
                 sizeof(buffer),
                 0);
 
-
         if (received <= 0) {
             return;
         }
-
 
         request.append(
             buffer,
             received);
     }
-
 
     // --------------------------------------------------------
     // Parse request line
@@ -265,12 +286,10 @@ void handle_request(
     std::string path;
     std::string version;
 
-
     request_stream
         >> method
         >> path
         >> version;
-
 
     // --------------------------------------------------------
     // Find header/body boundary
@@ -278,7 +297,6 @@ void handle_request(
 
     const std::size_t header_end =
         request.find("\r\n\r\n");
-
 
     if (header_end ==
         std::string::npos) {
@@ -294,10 +312,8 @@ void handle_request(
         return;
     }
 
-
     const std::size_t body_start =
         header_end + 4;
-
 
     // --------------------------------------------------------
     // Read Content-Length
@@ -305,18 +321,15 @@ void handle_request(
 
     std::size_t content_length = 0;
 
-
     const std::string headers =
         request.substr(
             0,
             header_end);
 
-
     std::istringstream header_stream(
         headers);
 
     std::string header_line;
-
 
     while (
         std::getline(
@@ -330,10 +343,8 @@ void handle_request(
             header_line.pop_back();
         }
 
-
         const std::string prefix =
             "Content-Length:";
-
 
         if (
             header_line.rfind(
@@ -350,7 +361,6 @@ void handle_request(
         }
     }
 
-
     // --------------------------------------------------------
     // Receive remaining request body
     // --------------------------------------------------------
@@ -366,23 +376,19 @@ void handle_request(
                 sizeof(buffer),
                 0);
 
-
         if (received <= 0) {
             return;
         }
-
 
         request.append(
             buffer,
             received);
     }
 
-
     const std::string body =
         request.substr(
             body_start,
             content_length);
-
 
     // ========================================================
     // Login endpoint
@@ -396,10 +402,6 @@ void handle_request(
 
             const auto input =
                 nlohmann::json::parse(body);
-
-            // ------------------------------------------------
-            // Validate request
-            // ------------------------------------------------
 
             if (
                 !input.contains("username") ||
@@ -416,10 +418,6 @@ void handle_request(
                 return;
             }
 
-            // ------------------------------------------------
-            // Extract credentials
-            // ------------------------------------------------
-
             const std::string username =
                 input.at("username")
                     .get<std::string>();
@@ -428,17 +426,12 @@ void handle_request(
                 input.at("password")
                     .get<std::string>();
 
-            // ------------------------------------------------
-            // Authenticate
-            // ------------------------------------------------
-
             const auto authenticated =
                 auth_service.login(
                     username,
                     password);
 
             if (!authenticated) {
-
                 send_response(
                     client,
                     401,
@@ -450,26 +443,12 @@ void handle_request(
                 return;
             }
 
-            // ------------------------------------------------
-            // Build response
-            // ------------------------------------------------
-
             nlohmann::json response;
-
-            response["status"] =
-                "authenticated";
-
-            response["token"] =
-                authenticated->token;
-
-            response["user"] =
-                authenticated->user_id;
-
-            response["department"] =
-                authenticated->department;
-
-            response["role"] =
-                authenticated->role;
+            response["status"] = "authenticated";
+            response["token"] = authenticated->token;
+            response["user"] = authenticated->user_id;
+            response["department"] = authenticated->department;
+            response["role"] = authenticated->role;
 
             send_response(
                 client,
@@ -480,21 +459,17 @@ void handle_request(
 
             return;
         }
-        catch (
-            const std::exception& e) {
-
+        catch (const std::exception& e) {
             send_response(
                 client,
                 400,
                 "Bad Request",
                 "application/json",
-                json_error(
-                    e.what()));
+                json_error(e.what()));
 
             return;
         }
     }
-
 
     // ========================================================
     // Health endpoint
@@ -505,13 +480,8 @@ void handle_request(
         path == "/health") {
 
         nlohmann::json response;
-
-        response["status"] =
-            "ok";
-
-        response["service"] =
-            "enterprise-knowledge-gateway";
-
+        response["status"] = "ok";
+        response["service"] = "enterprise-knowledge-gateway";
 
         send_response(
             client,
@@ -523,22 +493,15 @@ void handle_request(
         return;
     }
 
-
     // ========================================================
     // Frontend
     // ========================================================
 
     if (method == "GET") {
-
-        if (
-            serve_static_file(
-                client,
-                path)) {
-
+        if (serve_static_file(client, path)) {
             return;
         }
     }
-
 
     // ========================================================
     // Query endpoint
@@ -549,273 +512,120 @@ void handle_request(
         path == "/query") {
 
         try {
-
             const auto input =
-                nlohmann::json::parse(
-                    body);
-
-
-            // ------------------------------------------------
-            // Validate request
-            // ------------------------------------------------
+                nlohmann::json::parse(body);
 
             if (!input.contains("query")) {
-
                 send_response(
                     client,
                     400,
                     "Bad Request",
                     "application/json",
-                    json_error(
-                        "query is required"));
+                    json_error("query is required"));
 
                 return;
             }
-
-
-            // ------------------------------------------------
-            // Extract query
-            // ------------------------------------------------
 
             const std::string query =
-                input.at("query")
-                    .get<std::string>();
-
-
-            // ------------------------------------------------
-            // Authenticate request
-            // ------------------------------------------------
+                input.at("query").get<std::string>();
 
             const std::string authorization_header =
-                get_header(
-                    headers,
-                    "Authorization");
-
+                get_header(headers, "Authorization");
 
             if (authorization_header.empty()) {
-
                 send_response(
                     client,
                     401,
                     "Unauthorized",
                     "application/json",
-                    json_error(
-                        "Authorization header is required"));
+                    json_error("Authorization header is required"));
 
                 return;
             }
 
-
-            const std::string bearer_prefix =
-                "Bearer ";
-
-
-            if (
-                authorization_header.rfind(
-                    bearer_prefix,
-                    0) != 0) {
-
+            constexpr std::string_view bearer_prefix = "Bearer ";
+            if (authorization_header.rfind(bearer_prefix, 0) != 0) {
                 send_response(
                     client,
                     401,
                     "Unauthorized",
                     "application/json",
-                    json_error(
-                        "Authorization must use Bearer token"));
+                    json_error("Authorization must use Bearer token"));
 
                 return;
             }
-
 
             const std::string token =
-                authorization_header.substr(
-                    bearer_prefix.size());
-
+                authorization_header.substr(bearer_prefix.size());
 
             const auto authenticated =
-                auth_service.authenticate(
-                    token);
-
+                auth_service.authenticate(token);
 
             if (!authenticated) {
-
                 send_response(
                     client,
                     401,
                     "Unauthorized",
                     "application/json",
-                    json_error(
-                        "Invalid authentication token"));
+                    json_error("Invalid authentication token"));
 
                 return;
             }
 
-
-            // ------------------------------------------------
-            // Identity comes from authenticated token
-            // ------------------------------------------------
-
-            const std::string user_id =
-                authenticated->user_id;
-
-            const std::string department =
-                authenticated->department;
-
-            const std::string role =
-                authenticated->role;
-
-
-            // ------------------------------------------------
-            // Number of results
-            // ------------------------------------------------
+            const std::string user_id = authenticated->user_id;
+            const std::string department = authenticated->department;
+            const std::string role = authenticated->role;
 
             std::size_t k = 5;
-
-
-            if (
-                input.contains("k")) {
-
-                k =
-                    input.at("k")
-                        .get<std::size_t>();
+            if (input.contains("k")) {
+                k = input.at("k").get<std::size_t>();
             }
-
-
             if (k == 0) {
                 k = 1;
             }
-
-
             if (k > 20) {
                 k = 20;
             }
 
+            rag::security::UserContext user{user_id, department, role};
+            rag::security::AuthorizationPolicy policy(user);
+            auto authorization_filter = policy.filter();
 
-            // =================================================
-            // Authorization
-            // =================================================
-
-            rag::security::UserContext user{
-                user_id,
-                department,
-                role
-            };
-
-
-            rag::security::AuthorizationPolicy policy(
-                user);
-
-
-            auto authorization_filter =
-                policy.filter();
-
-
-            // =================================================
-            // Retrieval
-            // =================================================
-
-            auto results =
-                engine.search(
-                    query,
-                    k,
-                    authorization_filter);
-
-
+            auto results = engine.search(query, k, authorization_filter);
             if (!results) {
-
                 send_response(
                     client,
                     500,
                     "Internal Server Error",
                     "application/json",
-                    json_error(
-                        "Retrieval failed"));
+                    json_error("Retrieval failed"));
 
                 return;
             }
 
-
-            // =================================================
-            // Build JSON response
-            // =================================================
-
             nlohmann::json response;
+            response["query"] = query;
+            response["user"] = user_id;
+            response["department"] = department;
+            response["role"] = role;
+            response["results"] = nlohmann::json::array();
 
-
-            response["query"] =
-                query;
-
-
-            response["user"] =
-                user_id;
-
-
-            response["department"] =
-                department;
-
-
-            response["role"] =
-                role;
-
-
-            response["results"] =
-                nlohmann::json::array();
-
-
-            // ------------------------------------------------
-            // Add retrieved results
-            // ------------------------------------------------
-
-            for (
-                const auto& result :
-                *results) {
-
+            for (const auto& result : *results) {
                 nlohmann::json item;
-
-
-                item["score"] =
-                    result.score.get();
-
-
-                item["text"] =
-                    result.text;
-
-
+                item["score"] = result.score.get();
+                item["text"] = result.text;
                 item["citation"] = {
-                    {
-                        "source",
-                        result.uri
-                    },
-                    {
-                        "chunk",
-                        static_cast<unsigned long long>(
-                            result.chunk.get())
-                    }
+                    {"source", result.uri},
+                    {"chunk", static_cast<unsigned long long>(result.chunk.get())}
                 };
 
-
-                if (
-                    result.start_line != 0 ||
-                    result.end_line != 0) {
-
-                    item["citation"]["startLine"] =
-                        result.start_line;
-
-
-                    item["citation"]["endLine"] =
-                        result.end_line;
+                if (result.start_line != 0 || result.end_line != 0) {
+                    item["citation"]["startLine"] = result.start_line;
+                    item["citation"]["endLine"] = result.end_line;
                 }
 
-
-                response["results"]
-                    .push_back(
-                        std::move(item));
+                response["results"].push_back(std::move(item));
             }
-
-
-            // ------------------------------------------------
-            // Send response
-            // ------------------------------------------------
 
             send_response(
                 client,
@@ -824,25 +634,19 @@ void handle_request(
                 "application/json",
                 response.dump(2));
 
-
             return;
-
         }
-        catch (
-            const std::exception& e) {
-
+        catch (const std::exception& e) {
             send_response(
                 client,
                 400,
                 "Bad Request",
                 "application/json",
-                json_error(
-                    e.what()));
+                json_error(e.what()));
 
             return;
         }
     }
-
 
     // ========================================================
     // Retrieval comparison endpoint (Dense HNSW, BM25, explicit RRF)
@@ -934,7 +738,7 @@ void handle_request(
                         {"rank", i + 1}, {"score", hits[i].score.get()},
                         {"text", result.text},
                         {"citation", {{"source", result.uri},
-                                       {"chunk", static_cast<unsigned long long>(result.chunk.get())}}}
+                                      {"chunk", static_cast<unsigned long long>(result.chunk.get())}}}
                     };
                     lane["results"].push_back(std::move(item));
                 }
@@ -988,105 +792,62 @@ void handle_request(
         path == "/documents") {
 
         try {
-
-            // ------------------------------------------------
-            // Authenticate request
-            // ------------------------------------------------
-
             const std::string authorization_header =
-                get_header(
-                    headers,
-                    "Authorization");
-
+                get_header(headers, "Authorization");
 
             if (authorization_header.empty()) {
-
                 send_response(
                     client,
                     401,
                     "Unauthorized",
                     "application/json",
-                    json_error(
-                        "Authorization header is required"));
+                    json_error("Authorization header is required"));
 
                 return;
             }
 
-
-            const std::string bearer_prefix =
-                "Bearer ";
-
-
-            if (
-                authorization_header.rfind(
-                    bearer_prefix,
-                    0) != 0) {
-
+            constexpr std::string_view bearer_prefix = "Bearer ";
+            if (authorization_header.rfind(bearer_prefix, 0) != 0) {
                 send_response(
                     client,
                     401,
                     "Unauthorized",
                     "application/json",
-                    json_error(
-                        "Authorization must use Bearer token"));
+                    json_error("Authorization must use Bearer token"));
 
                 return;
             }
-
 
             const std::string token =
-                authorization_header.substr(
-                    bearer_prefix.size());
-
+                authorization_header.substr(bearer_prefix.size());
 
             const auto authenticated =
-                auth_service.authenticate(
-                    token);
-
+                auth_service.authenticate(token);
 
             if (!authenticated) {
-
                 send_response(
                     client,
                     401,
                     "Unauthorized",
                     "application/json",
-                    json_error(
-                        "Invalid authentication token"));
+                    json_error("Invalid authentication token"));
 
                 return;
             }
 
-
-            // ------------------------------------------------
-            // Only administrators can upload documents
-            // ------------------------------------------------
-
             if (authenticated->role != "admin") {
-
                 send_response(
                     client,
                     403,
                     "Forbidden",
                     "application/json",
-                    json_error(
-                        "Administrator access required"));
+                    json_error("Administrator access required"));
 
                 return;
             }
 
-
-            // ------------------------------------------------
-            // Parse document request
-            // ------------------------------------------------
-
             const auto input =
                 nlohmann::json::parse(body);
-
-
-            // ------------------------------------------------
-            // Validate request
-            // ------------------------------------------------
 
             if (
                 !input.contains("filename") ||
@@ -1105,34 +866,17 @@ void handle_request(
                 return;
             }
 
-
-            // ------------------------------------------------
-            // Extract fields
-            // ------------------------------------------------
-
             const std::string filename =
-                input.at("filename")
-                    .get<std::string>();
-
+                input.at("filename").get<std::string>();
 
             const std::string content =
-                input.at("content")
-                    .get<std::string>();
-
+                input.at("content").get<std::string>();
 
             const std::string department =
-                input.at("department")
-                    .get<std::string>();
-
+                input.at("department").get<std::string>();
 
             const std::string role =
-                input.at("role")
-                    .get<std::string>();
-
-
-            // ------------------------------------------------
-            // Basic validation
-            // ------------------------------------------------
+                input.at("role").get<std::string>();
 
             if (
                 filename.empty() ||
@@ -1151,31 +895,11 @@ void handle_request(
                 return;
             }
 
-
-            // ------------------------------------------------
-            // Build metadata
-            // ------------------------------------------------
-
             rag::Metadata metadata;
+            metadata["department"] = department;
+            metadata["role"] = role;
 
-            metadata["department"] =
-                department;
-
-            metadata["role"] =
-                role;
-
-
-            // ------------------------------------------------
-            // Use filename as stable document URI
-            // ------------------------------------------------
-
-            const std::string uri =
-                "uploads/" + filename;
-
-
-            // ------------------------------------------------
-            // Upsert document
-            // ------------------------------------------------
+            const std::string uri = "uploads/" + filename;
 
             auto result =
                 engine.corpus().upsert_document(
@@ -1184,91 +908,54 @@ void handle_request(
                     metadata,
                     filename);
 
-
             if (!result) {
-
                 send_response(
                     client,
                     500,
                     "Internal Server Error",
                     "application/json",
-                    json_error(
-                        "Failed to add document"));
+                    json_error("Failed to add document"));
 
                 return;
             }
-
-
-            // ------------------------------------------------
-            // Rebuild retrieval indexes
-            // ------------------------------------------------
 
             auto build_result =
                 engine.build();
 
-
             if (!build_result) {
-
                 send_response(
                     client,
                     500,
                     "Internal Server Error",
                     "application/json",
-                    json_error(
-                        "Document added but index rebuild failed"));
+                    json_error("Document added but index rebuild failed"));
 
                 return;
             }
 
-
-            // ------------------------------------------------
-            // Persist database
-            // ------------------------------------------------
-
-            const std::string db_path =
-                "C:\\Users\\hp\\rag-cpp\\enterprise_eval.ragdb";
-
+            const std::filesystem::path db_path =
+                resolve_repo_path("enterprise_eval.ragdb");
 
             auto save_result =
-                engine.save(
-                    db_path);
-
+                engine.save(db_path.string());
 
             if (!save_result) {
-
                 send_response(
                     client,
                     500,
                     "Internal Server Error",
                     "application/json",
-                    json_error(
-                        "Document indexed but database save failed"));
+                    json_error("Document indexed but database save failed"));
 
                 return;
             }
 
-
-            // ------------------------------------------------
-            // Success response
-            // ------------------------------------------------
-
             nlohmann::json response;
-
-            response["status"] =
-                "indexed";
-
-            response["filename"] =
-                filename;
-
-            response["uri"] =
-                uri;
-
-            response["department"] =
-                department;
-
-            response["role"] =
-                role;
-
+            response["status"] = "indexed";
+            response["filename"] = filename;
+            response["uri"] = uri;
+            response["department"] = department;
+            response["role"] = role;
 
             send_response(
                 client,
@@ -1277,25 +964,19 @@ void handle_request(
                 "application/json",
                 response.dump(2));
 
-
             return;
-
         }
-        catch (
-            const std::exception& e) {
-
+        catch (const std::exception& e) {
             send_response(
                 client,
                 400,
                 "Bad Request",
                 "application/json",
-                json_error(
-                    e.what()));
+                json_error(e.what()));
 
             return;
         }
     }
-
 
     // ========================================================
     // Not found
@@ -1306,8 +987,7 @@ void handle_request(
         404,
         "Not Found",
         "application/json",
-        json_error(
-            "Endpoint not found"));
+        json_error("Endpoint not found"));
 }
 
 } // namespace
@@ -1318,45 +998,27 @@ void handle_request(
 // ============================================================
 
 int main() {
-
     std::cout
         << "========================================\n"
         << " Enterprise Knowledge Gateway\n"
         << "========================================\n\n";
 
-
-    // ========================================================
-    // Load database
-    // ========================================================
-
-    const std::string db_path =
-        "C:\\Users\\hp\\rag-cpp\\enterprise_eval.ragdb";
-
+    const std::filesystem::path db_path =
+        resolve_repo_path("enterprise_eval.ragdb");
 
     auto engine_result =
-        rag::Engine::open(
-            db_path);
-
+        rag::Engine::open(db_path.string());
 
     if (!engine_result) {
-
         std::cerr
             << "Failed to open database: "
-            << db_path
+            << db_path.string()
             << "\n";
 
         return 1;
     }
 
-
-    auto engine =
-        std::move(
-            *engine_result);
-
-
-    // ========================================================
-    // Attach Ollama embedder
-    // ========================================================
+    auto engine = std::move(*engine_result);
 
     auto embedder_result =
         engine.with_embedder_spec(
@@ -1368,204 +1030,111 @@ int main() {
                 {"dim", 768}
             });
 
-
     if (!embedder_result) {
-
-        std::cerr
-            << "Failed to attach Ollama embedder.\n";
-
+        std::cerr << "Failed to attach Ollama embedder.\n";
         return 1;
     }
 
-
     // ========================================================
-    // Initialize Winsock
+    // Initialize networking
     // ========================================================
 
+#if defined(_WIN32)
     WSADATA wsa_data{};
-
-
     const int wsa_result =
-        WSAStartup(
-            MAKEWORD(2, 2),
-            &wsa_data);
-
+        WSAStartup(MAKEWORD(2, 2), &wsa_data);
 
     if (wsa_result != 0) {
-
-        std::cerr
-            << "WSAStartup failed: "
-            << wsa_result
-            << "\n";
-
+        std::cerr << "WSAStartup failed: " << wsa_result << "\n";
         return 1;
     }
-
+#endif
 
     // ========================================================
     // Create socket
     // ========================================================
 
-    SOCKET server_socket =
-        socket(
-            AF_INET,
-            SOCK_STREAM,
-            IPPROTO_TCP);
-
-
-    if (
-        server_socket ==
-        INVALID_SOCKET) {
-
-        std::cerr
-            << "Failed to create socket.\n";
-
+    socket_t server_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (server_socket == kInvalidSocket) {
+        std::cerr << "Failed to create socket.\n";
+#if defined(_WIN32)
         WSACleanup();
-
+#endif
         return 1;
     }
-
 
     // ========================================================
     // Bind
     // ========================================================
 
     sockaddr_in server_address{};
+    server_address.sin_family = AF_INET;
+    server_address.sin_addr.s_addr = htonl(INADDR_ANY);
+    server_address.sin_port = htons(PORT);
 
-
-    server_address.sin_family =
-        AF_INET;
-
-
-    server_address.sin_addr.s_addr =
-        htonl(INADDR_ANY);
-
-
-    server_address.sin_port =
-        htons(PORT);
-
-
-    if (
-        bind(
-            server_socket,
-            reinterpret_cast<sockaddr*>(
-                &server_address),
-            sizeof(server_address))
-        == SOCKET_ERROR) {
-
-        std::cerr
-            << "Failed to bind port "
-            << PORT
-            << ".\n";
-
-        closesocket(
-            server_socket);
-
+    if (bind(server_socket,
+             reinterpret_cast<sockaddr*>(&server_address),
+             sizeof(server_address)) == kSocketError) {
+        std::cerr << "Failed to bind port " << PORT << ".\n";
+        close_socket(server_socket);
+#if defined(_WIN32)
         WSACleanup();
-
+#endif
         return 1;
     }
-
 
     // ========================================================
     // Listen
     // ========================================================
 
-    if (
-        listen(
-            server_socket,
-            SOMAXCONN)
-        == SOCKET_ERROR) {
-
-        std::cerr
-            << "Failed to listen.\n";
-
-        closesocket(
-            server_socket);
-
+    if (listen(server_socket, SOMAXCONN) == kSocketError) {
+        std::cerr << "Failed to listen.\n";
+        close_socket(server_socket);
+#if defined(_WIN32)
         WSACleanup();
-
+#endif
         return 1;
     }
-
 
     // ========================================================
     // Startup information
     // ========================================================
 
-    std::cout
-        << "Server running on:\n"
-        << "  http://localhost:"
-        << PORT
-        << "\n\n";
+    std::cout << "Server running on:\n"
+              << "  http://localhost:" << PORT << "\n\n";
 
-
-    std::cout
-        << "Endpoints:\n"
-        << "  GET  /\n"
-        << "  POST /login\n"
-        << "  GET  /health\n"
-        << "  GET  /style.css\n"
-        << "  GET  /app.js\n"
-        << "  POST /query\n"
-        << "  POST /compare  (admin; Dense + BM25 + RRF)\n"
-        << "  POST /documents\n\n";
-
-
-    // ========================================================
-    // Accept requests
-    // ========================================================
+    std::cout << "Endpoints:\n"
+              << "  GET  /\n"
+              << "  POST /login\n"
+              << "  GET  /health\n"
+              << "  GET  /style.css\n"
+              << "  GET  /app.js\n"
+              << "  POST /query\n"
+              << "  POST /compare  (admin; Dense + BM25 + RRF)\n"
+              << "  POST /documents\n\n";
 
     rag::security::AuthenticationService auth_service;
 
-
     while (true) {
-
         sockaddr_in client_address{};
+        socklen_t client_address_size = sizeof(client_address);
 
+        socket_t client = accept(server_socket,
+                                 reinterpret_cast<sockaddr*>(&client_address),
+                                 &client_address_size);
 
-        int client_address_size =
-            sizeof(client_address);
-
-
-        SOCKET client =
-            accept(
-                server_socket,
-                reinterpret_cast<sockaddr*>(
-                    &client_address),
-                &client_address_size);
-
-
-        if (
-            client ==
-            INVALID_SOCKET) {
-
-            std::cerr
-                << "Failed to accept connection.\n";
-
+        if (client == kInvalidSocket) {
+            std::cerr << "Failed to accept connection.\n";
             continue;
         }
 
-
-        handle_request(
-            client,
-            engine,
-            auth_service);
-
-
-        closesocket(
-            client);
+        handle_request(client, engine, auth_service);
+        close_socket(client);
     }
 
-
-    // ========================================================
-    // Cleanup
-    // ========================================================
-
-    closesocket(
-        server_socket);
-
+    close_socket(server_socket);
+#if defined(_WIN32)
     WSACleanup();
-
+#endif
     return 0;
 }
