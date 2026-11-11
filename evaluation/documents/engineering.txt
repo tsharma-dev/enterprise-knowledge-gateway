@@ -1,0 +1,9 @@
+Engineering employees receive 20 days of annual leave.
+
+Engineering employees can request remote work up to three days per week.
+
+Production deployments require approval from the engineering manager.
+
+Engineering code repositories must use mandatory code review before production deployment.
+
+Critical production incidents must be reported to the engineering manager immediately.

@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enterprise Knowledge Gateway</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+
+<body>
+
+<!-- ================= LOGIN ================= -->
+
+<div id="login-screen" class="login-screen">
+
+    <div class="login-shell">
+
+        <!-- LEFT BRAND PANEL -->
+
+        <div class="login-brand-panel">
+
+            <div class="login-brand">
+
+                <div class="login-brand-icon">
+                    K
+                </div>
+
+                <div>
+                    <div class="login-brand-name">
+                        Knowledge Gateway
+                    </div>
+
+                    <div class="login-brand-product">
+                        ENTERPRISE RAG
+                    </div>
+                </div>
+
+            </div>
+
+
+            <div class="login-brand-content">
+
+                <p class="login-eyebrow">
+                    PRIVATE KNOWLEDGE INFRASTRUCTURE
+                </p>
+
+                <h1>
+                    Your company's
+                    <span>knowledge.</span>
+                    One secure gateway.
+                </h1>
+
+                <p class="login-description">
+                    Search enterprise documents with
+                    authorization-aware AI retrieval,
+                    hybrid search and source-level citations.
+                </p>
+
+
+                <div class="login-features">
+
+                    <div class="login-feature">
+
+                        <div class="feature-check">
+                            ✓
+                        </div>
+
+                        <div>
+                            <strong>
+                                Access-controlled
+                            </strong>
+
+                            <span>
+                                Results respect department and role permissions.
+                            </span>
+                        </div>
+
+                    </div>
+
+
+                    <div class="login-feature">
+
+                        <div class="feature-check">
+                            ✓
+                        </div>
+
+                        <div>
+                            <strong>
+                                Hybrid retrieval
+                            </strong>
+
+                            <span>
+                                BM25 and dense semantic search work together.
+                            </span>
+                        </div>
+
+                    </div>
+
+
+                    <div class="login-feature">
+
+                        <div class="feature-check">
+                            ✓
+                        </div>
+
+                        <div>
+                            <strong>
+                                Source citations
+                            </strong>
+
+                            <span>
+                                Every result includes its document provenance.
+                            </span>
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <div class="login-brand-footer">
+                Secure enterprise knowledge access
+            </div>
+
+        </div>
+
+
+        <!-- RIGHT LOGIN PANEL -->
+
+        <div class="login-form-panel">
+
+            <div class="login-form-container">
+
+                <div class="mobile-login-logo">
+                    K
+                </div>
+
+                <p class="login-form-eyebrow">
+                    SECURE ACCESS
+                </p>
+
+                <h2>
+                    Welcome back
+                </h2>
+
+                <p class="login-form-subtitle">
+                    Sign in to access your enterprise workspace.
+                </p>
+
+
+                <form id="login-form">
+
+                    <div class="login-field">
+
+                        <label for="username">
+                            Username
+                        </label>
+
+                        <input
+                            type="text"
+                            id="username"
+                            placeholder="Enter your username"
+                            autocomplete="username"
+                            required
+                        >
+
+                    </div>
+
+
+                    <div class="login-field">
+
+                        <label for="password">
+                            Password
+                        </label>
+
+                        <input
+                            type="password"
+                            id="password"
+                            placeholder="Enter your password"
+                            autocomplete="current-password"
+                            required
+                        >
+
+                    </div>
+
+
+                    <div
+                        id="login-error"
+                        class="error-message"
+                        hidden
+                    ></div>
+
+
+                    <button
+                        type="submit"
+                        class="login-submit"
+                    >
+                        <span>
+                            Sign In
+                        </span>
+
+                        <span class="login-arrow">
+                            →
+                        </span>
+
+                    </button>
+
+                </form>
+
+
+                <div class="login-security">
+
+                    <span class="security-lock">
+                        ◆
+                    </span>
+
+                    <span>
+                        Authenticated access · Role-based permissions
+                    </span>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- ================= APPLICATION ================= -->
+
+<div
+    id="app-screen"
+    class="app"
+    hidden
+>
+
+    <!-- SIDEBAR -->
+
+    <aside class="sidebar">
+
+        <div class="brand">
+
+            <div class="brand-icon">
+                K
+            </div>
+
+            <div>
+                <h1>
+                    Knowledge Gateway
+                </h1>
+
+                <p>
+                    Enterprise RAG
+                </p>
+            </div>
+
+        </div>
+
+
+        <!-- NAVIGATION -->
+
+        <nav class="navigation">
+
+            <button
+                id="nav-ask"
+                class="nav-button active"
+                onclick="showSection('ask')"
+            >
+
+                <span class="nav-icon">
+                    ⌕
+                </span>
+
+                <span>
+                    Ask Knowledge Base
+                </span>
+
+            </button>
+
+
+            <button
+                id="nav-admin"
+                class="nav-button"
+                onclick="showSection('admin')"
+            >
+
+                <span class="nav-icon">
+                    ▣
+                </span>
+
+                <span>
+                    Admin · Documents
+                </span>
+
+            </button>
+
+        </nav>
+
+
+        <!-- SIDEBAR BOTTOM -->
+
+        <div class="sidebar-bottom">
+
+            <div class="status">
+
+                <span class="status-dot"></span>
+
+                <div>
+
+                    <strong>
+                        System Online
+                    </strong>
+
+                    <small>
+                        RAG gateway active
+                    </small>
+
+                </div>
+
+            </div>
+
+
+            <!-- CURRENT USER -->
+
+            <div class="current-user">
+
+                <div
+                    id="user-avatar-letter"
+                    class="user-avatar"
+                >
+                    U
+                </div>
+
+                <div class="user-details">
+
+                    <strong id="current-user">
+                        User
+                    </strong>
+
+                    <small id="current-user-role">
+                        department · role
+                    </small>
+
+                </div>
+
+                <button
+                    id="logout-button"
+                    class="logout-button"
+                    title="Logout"
+                >
+                    ↪
+                </button>
+
+            </div>
+
+        </div>
+
+    </aside>
+
+
+    <!-- MAIN -->
+
+    <main class="main">
+
+
+        <!-- ================= ASK ================= -->
+
+        <section
+            id="ask-section"
+            class="content-section"
+        >
+
+            <div class="page-header">
+
+                <div>
+
+                    <p class="eyebrow">
+                        KNOWLEDGE BASE
+                    </p>
+
+                    <h2>
+                        Ask Knowledge Base
+                    </h2>
+
+                    <p class="subtitle">
+                        Search enterprise knowledge using
+                        authorization-aware retrieval.
+                    </p>
+
+                </div>
+
+            </div>
+
+
+            <!-- ACCESS INFO -->
+
+            <div class="access-card">
+
+                <div class="access-icon">
+                    ◉
+                </div>
+
+                <div>
+
+                    <span class="card-label">
+                        ACCESS-CONTROLLED SEARCH
+                    </span>
+
+                    <strong>
+                        Results are filtered by department and role
+                    </strong>
+
+                    <p>
+                        The RAG gateway only returns documents
+                        that the authenticated user is authorized to access.
+                    </p>
+
+                </div>
+
+            </div>
+
+
+            <!-- QUERY CARD -->
+
+            <div class="card query-card">
+
+                <div class="card-header">
+
+                    <div>
+
+                        <h3>
+                            Ask a question
+                        </h3>
+
+                        <p>
+                            Search authorized enterprise documents.
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                <div class="access-user">
+
+                    Access scope:
+                    <strong id="access-department">
+                        —
+                    </strong>
+
+                </div>
+
+
+                <label for="query">
+                    Question
+                </label>
+
+                <textarea
+                    id="query"
+                    rows="5"
+                    placeholder="Example: How many days of annual leave do employees receive?"
+                ></textarea>
+
+
+                <div class="query-footer">
+
+                    <span class="retrieval-info">
+                        Hybrid RAG · BM25 + Dense Retrieval
+                    </span>
+
+                    <button
+                        class="primary"
+                        onclick="askQuestion()"
+                    >
+                        Ask Knowledge Base
+                    </button>
+
+                </div>
+
+            </div>
+
+
+            <!-- RESULTS -->
+
+            <div class="results-header">
+
+                <h3>
+                    Search Results
+                </h3>
+
+                <span>
+                    Source citations included
+                </span>
+
+            </div>
+
+
+            <div id="results">
+
+                <div class="empty-state">
+
+                    <div class="empty-icon">
+                        ⌕
+                    </div>
+
+                    <h3>
+                        No question asked yet
+                    </h3>
+
+                    <p>
+                        Ask a question to search your authorized
+                        enterprise knowledge base.
+                    </p>
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- ================= ADMIN ================= -->
+
+        <section
+            id="admin-section"
+            class="content-section"
+            style="display:none"
+        >
+
+            <div class="page-header">
+
+                <div>
+
+                    <p class="eyebrow">
+                        ADMINISTRATION
+                    </p>
+
+                    <h2>
+                        Document Management
+                    </h2>
+
+                    <p class="subtitle">
+                        Add enterprise documents and control who can access them.
+                    </p>
+
+                </div>
+
+            </div>
+
+
+            <!-- ADMIN NOTICE -->
+
+            <div class="admin-notice">
+
+                <div class="admin-notice-icon">
+                    !
+                </div>
+
+                <div>
+
+                    <strong>
+                        Administrator access
+                    </strong>
+
+                    <p>
+                        Only authenticated administrators can add
+                        documents to the knowledge base.
+                    </p>
+
+                </div>
+
+            </div>
+
+
+            <!-- UPLOAD -->
+
+            <div class="card upload-card">
+
+                <div class="card-header">
+
+                    <div>
+
+                        <h3>
+                            Add Document
+                        </h3>
+
+                        <p>
+                            Upload a TXT or Markdown document and assign
+                            its access policy.
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                <label for="documentFile">
+                    Document
+                </label>
+
+                <input
+                    type="file"
+                    id="documentFile"
+                    accept=".txt,.md"
+                >
+
+
+                <div class="form-row">
+
+                    <div class="form-column">
+
+                        <label for="documentDepartment">
+                            Department
+                        </label>
+
+                        <select id="documentDepartment">
+
+                            <option value="engineering">
+                                Engineering
+                            </option>
+
+                            <option value="hr">
+                                HR
+                            </option>
+
+                            <option value="finance">
+                                Finance
+                            </option>
+
+                            <option value="public">
+                                Public
+                            </option>
+
+                        </select>
+
+                    </div>
+
+
+                    <div class="form-column">
+
+                        <label for="documentRole">
+                            Role
+                        </label>
+
+                        <select id="documentRole">
+
+                            <option value="employee">
+                                Employee
+                            </option>
+
+                            <option value="manager">
+                                Manager
+                            </option>
+
+                            <option value="admin">
+                                Admin
+                            </option>
+
+                            <option value="any">
+                                Any role
+                            </option>
+
+                        </select>
+
+                    </div>
+
+                </div>
+
+
+                <div class="upload-footer">
+
+                    <p>
+                        Access policy is stored as document metadata.
+                    </p>
+
+                    <button
+                        class="primary"
+                        onclick="uploadDocument()"
+                    >
+                        Add & Index Document
+                    </button>
+
+                </div>
+
+            </div>
+
+
+            <!-- RETRIEVAL COMPARISON -->
+            <div class="card comparison-card">
+                <div class="card-header">
+                    <div>
+                        <h3>Retrieval Comparison</h3>
+                        <p>Run one authorized query through HNSW dense, BM25, and explicit RRF hybrid retrieval.</p>
+                    </div>
+                    <span class="comparison-security">Admin only · access filtered</span>
+                </div>
+                <label for="comparisonQuery">Comparison query</label>
+                <div class="comparison-input-row">
+                    <input id="comparisonQuery" type="text" maxlength="1000" placeholder="e.g. parental leave policy" autocomplete="off">
+                    <button id="compareButton" class="primary" type="button" onclick="compareRetrieval()">Compare strategies</button>
+                </div>
+                <div id="comparisonStatus" aria-live="polite"></div>
+                <div id="comparisonResults"></div>
+            </div>
+
+
+            <div id="uploadStatus"></div>
+
+
+            <!-- SECURITY -->
+
+            <div class="security-card">
+
+                <div class="security-check">
+                    ✓
+                </div>
+
+                <div>
+
+                    <h3>
+                        Authorization-aware retrieval
+                    </h3>
+
+                    <p>
+                        Documents are tagged with department and role metadata.
+                        The retrieval pipeline applies authorization filters
+                        before returning results.
+                    </p>
+
+                </div>
+
+            </div>
+
+        </section>
+
+    </main>
+
+</div>
+
+
+<script src="/app.js"></script>
+
+</body>
+</html>

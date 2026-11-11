@@ -1,0 +1,122 @@
+[
+  {
+    "id": "q1",
+    "query": "How many annual leave days do employees receive?",
+    "department": "engineering",
+    "role": "employee"
+  },
+  {
+    "id": "q2",
+    "query": "How many days of annual leave can engineering employees take?",
+    "department": "engineering",
+    "role": "employee"
+  },
+  {
+    "id": "q3",
+    "query": "How many days per week can engineering employees work remotely?",
+    "department": "engineering",
+    "role": "employee"
+  },
+  {
+    "id": "q4",
+    "query": "Who approves production deployments?",
+    "department": "engineering",
+    "role": "employee"
+  },
+  {
+    "id": "q5",
+    "query": "What is required before code is deployed to production?",
+    "department": "engineering",
+    "role": "employee"
+  },
+  {
+    "id": "q6",
+    "query": "Who manages employee compensation information?",
+    "department": "hr",
+    "role": "employee"
+  },
+  {
+    "id": "q7",
+    "query": "Who can access confidential salary information?",
+    "department": "hr",
+    "role": "employee"
+  },
+  {
+    "id": "q8",
+    "query": "What benefits do employees receive?",
+    "department": "hr",
+    "role": "employee"
+  },
+  {
+    "id": "q9",
+    "query": "What documentation is required for new employees?",
+    "department": "hr",
+    "role": "employee"
+  },
+  {
+    "id": "q10",
+    "query": "How often are employee performance reviews conducted?",
+    "department": "hr",
+    "role": "employee"
+  },
+  {
+    "id": "q11",
+    "query": "Who manages company budgets?",
+    "department": "finance",
+    "role": "employee"
+  },
+  {
+    "id": "q12",
+    "query": "What approval is required for expenses above 50000 INR?",
+    "department": "finance",
+    "role": "employee"
+  },
+  {
+    "id": "q13",
+    "query": "Who can access quarterly financial reports?",
+    "department": "finance",
+    "role": "employee"
+  },
+  {
+    "id": "q14",
+    "query": "What must employees submit with business expenses?",
+    "department": "finance",
+    "role": "employee"
+  },
+  {
+    "id": "q15",
+    "query": "How often are departmental budgets reviewed?",
+    "department": "finance",
+    "role": "employee"
+  },
+  {
+    "id": "q16",
+    "query": "Do all employees receive health insurance?",
+    "department": "engineering",
+    "role": "employee"
+  },
+  {
+    "id": "q17",
+    "query": "Which public holidays does the company observe?",
+    "department": "engineering",
+    "role": "employee"
+  },
+  {
+    "id": "q18",
+    "query": "Where can employees find the company handbook?",
+    "department": "engineering",
+    "role": "employee"
+  },
+  {
+    "id": "q19",
+    "query": "Where can employees access company-wide announcements?",
+    "department": "hr",
+    "role": "employee"
+  },
+  {
+    "id": "q20",
+    "query": "What benefits are available to all employees?",
+    "department": "finance",
+    "role": "employee"
+  }
+]

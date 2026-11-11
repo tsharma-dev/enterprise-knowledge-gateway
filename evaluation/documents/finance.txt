@@ -1,0 +1,9 @@
+Finance manages company budgets and expense approvals.
+
+Expenses above 100000 INR require director approval.
+
+Quarterly financial reports are available to finance employees.
+
+Employees must submit business expenses with valid receipts.
+
+Finance reviews departmental budgets every quarter.

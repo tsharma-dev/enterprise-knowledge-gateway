@@ -1,0 +1,9 @@
+HR manages employee compensation information.
+
+Salary information is confidential and accessible only to authorized HR personnel.
+
+Employees receive benefits including health insurance and annual leave.
+
+New employees must complete their onboarding documentation with HR.
+
+Employee performance reviews are conducted annually.
