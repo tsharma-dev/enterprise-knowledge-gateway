@@ -140,7 +140,13 @@ jobs:
       - name: Install PostgreSQL development files on Linux
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libpq-dev
-      - run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+      - name: Configure
+        run: |
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DPostgreSQL_ROOT="$(brew --prefix libpq)"
+          else
+            cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+          fi
       - run: cmake --build build -j 8
       # Neither runner has a usable GPU, and ubuntu-latest ships a SOFTWARE
       # OpenCL ICD (POCL) that CMake auto-detects. Letting the suite dispatch
