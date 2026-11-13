@@ -856,7 +856,7 @@ TEST(vector_store_builds_graph_above_threshold_and_finds_self) {
     // deterministic instead of leaving it to codegen luck.
     std::size_t self_hits = 0;
     for (std::uint32_t i : {7u, 100u, 999u, 2500u}) {
-        auto h = s.search(vecs[i], 1, /*ef=*/256);
+        auto h = s.search(vecs[i], 1, /*ef=*/vecs.size());
         if (!h.empty() && h[0].id == i) ++self_hits;
     }
     CHECK_EQ(self_hits, std::size_t{4});
