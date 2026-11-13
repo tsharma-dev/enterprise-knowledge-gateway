@@ -170,7 +170,7 @@ jobs:
         run: |
           brew install libpq
           echo "$(brew --prefix libpq)/bin" >> "$GITHUB_PATH"
-      - run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DRAGCPP_WITH_METAL=OFF
+      - run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DRAGCPP_WITH_METAL=OFF -DPostgreSQL_ROOT="$(brew --prefix libpq)"
       - run: cmake --build build -j 8
       - run: ctest --test-dir build --output-on-failure
 
@@ -251,5 +251,5 @@ jobs:
         run: |
           brew install libpq
           echo "$(brew --prefix libpq)/bin" >> "$GITHUB_PATH"
-      - run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DRAGCPP_WERROR=ON
+      - run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DRAGCPP_WERROR=ON -DPostgreSQL_ROOT="$(brew --prefix libpq)"
       - run: cmake --build build -j 8
