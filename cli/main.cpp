@@ -1,6 +1,6 @@
 // cli/main.cpp — the `ragcpp` turnkey command-line tool.
 //
-//   ragcpp index  <dir> <out.ragdb> [--ext=.md] [--semantic] [--proposition] [--source]
+//   ragcpp index  <dir> <out.ragdb> [--ext=.md] [--semantic] [--proposition] [--source] [--ollama]
 //   ragcpp query  <db.ragdb> "<query>" [-k N] [--mmr] [--explain]
 //   ragcpp serve  <db.ragdb> [--http PORT] [--write] [--graph] [--memory] [--feedback] [--all]
 //   ragcpp eval   <beir-dir> [--split=test]
@@ -31,7 +31,7 @@ int usage() {
     std::printf(
         "ragcpp — a type-theoretic RAG engine\n\n"
         "usage:\n"
-        "  ragcpp index <dir> <out.ragdb> [--ext=.md] [--semantic] [--proposition] [--source] [--contextual]\n"
+        "  ragcpp index <dir> <out.ragdb> [--ext=.md] [--semantic] [--proposition] [--source] [--contextual] [--ollama]\n"
         "  ragcpp query <db.ragdb> \"<query>\" [-k N] [--mmr] [--explain]\n"
         "  ragcpp serve <db.ragdb> [--http PORT] [--write] [--graph] [--memory] [--feedback] [--all]\n"
         "  ragcpp eval  <beir-dir> [--split=test]\n"
@@ -82,24 +82,26 @@ int cmd_index(const std::vector<std::string>& args) {
     if (flag(args, "--contextual"))
         ccfg.contextual = true;
 
-    // Use Engine so the Ollama embedder is attached during indexing.
     rag::Engine engine{ccfg};
 
-    auto embedder_result = engine.with_embedder_spec(
-        nlohmann::json{
-            {"type", "ollama"},
-            {"host", "127.0.0.1"},
-            {"port", 11434},
-            {"model", "nomic-embed-text"},
-            {"dim", 768}
-        });
+    // Keep CI and default indexing offline. Attach Ollama only when requested.
+    if (flag(args, "--ollama")) {
+        auto embedder_result = engine.with_embedder_spec(
+            nlohmann::json{
+                {"type", "ollama"},
+                {"host", "127.0.0.1"},
+                {"port", 11434},
+                {"model", "nomic-embed-text"},
+                {"dim", 768}
+            });
 
-    if (!embedder_result) {
-        std::printf(
-            "embedder error: %s\n",
-            embedder_result.error().message.c_str()
-        );
-        return 1;
+        if (!embedder_result) {
+            std::printf(
+                "embedder error: %s\n",
+                embedder_result.error().message.c_str()
+            );
+            return 1;
+        }
     }
 
     rag::loaders::DirOptions lo;
