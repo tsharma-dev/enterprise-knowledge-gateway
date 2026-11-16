@@ -4619,6 +4619,8 @@ int main() {
     for (auto& c : registry()) {
         g_current = c.name;
         int before = g_failures;
+        std::printf("  RUN  %s\n", c.name.c_str());
+        std::fflush(stdout);
         c.fn();
         std::printf("  %s %s\n", (g_failures==before ? "ok  " : "FAIL"), c.name.c_str());
     }
