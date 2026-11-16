@@ -125,6 +125,8 @@ Enterprise knowledge bases contain information that should not be visible to eve
 
 The gateway associates users and documents with authorization metadata.
 
+For this portfolio demo, an authenticated admin is a trusted cross-department role and can read documents across all departments. Ordinary employees remain restricted by department and role. This intentionally combines platform administration and cross-department reading; a production system would normally separate those permissions.
+
 ## User Context
 
 ```cpp
@@ -151,19 +153,24 @@ The authorization policy converts the authenticated user's context into a metada
 ## Authorization Rules
 
 ```text
+ADMIN USER
+       │
+       └──► Trusted cross-department read access in this demo
+
+
 PUBLIC DOCUMENT
        │
-       └──► Accessible to all authorized users
+       └──► Accessible to all authenticated users
 
 
 DEPARTMENT DOCUMENT
        │
-       └──► Department must match
+       └──► Employee's department must match
 
 
 ROLE-RESTRICTED DOCUMENT
        │
-       └──► Department + role must match
+       └──► Department and role must match exactly
 ```
 
 This makes access control part of the retrieval process rather than a presentation-layer feature.
