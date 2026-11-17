@@ -31,7 +31,7 @@ int usage() {
     std::printf(
         "ragcpp — a type-theoretic RAG engine\n\n"
         "usage:\n"
-        "  ragcpp index <dir> <out.ragdb> [--ext=.md] [--semantic] [--proposition] [--source] [--contextual] [--ollama]\n"
+        "  ragcpp index <dir> <out.ragdb> [--ext=.md] [--semantic] [--proposition] [--source] [--contextual] [--ollama] [--embed-batch=N] [--ollama-timeout-ms=N]\n"
         "  ragcpp query <db.ragdb> \"<query>\" [-k N] [--mmr] [--explain]\n"
         "  ragcpp serve <db.ragdb> [--http PORT] [--write] [--graph] [--memory] [--feedback] [--all]\n"
         "  ragcpp eval  <beir-dir> [--split=test]\n"
@@ -46,6 +46,21 @@ std::string opt(const std::vector<std::string>& a, std::string_view key, std::st
             return s.substr(key.size() + 1);
     return def;
 }
+bool parse_bounded_size(std::string_view text, std::size_t minimum,
+                         std::size_t maximum, std::size_t& out) {
+    if (text.empty()) return false;
+    std::size_t value = 0;
+    for (char c : text) {
+        if (c < '0' || c > '9') return false;
+        const std::size_t digit = static_cast<std::size_t>(c - '0');
+        if (value > (maximum - digit) / 10) return false;
+        value = value * 10 + digit;
+    }
+    if (value < minimum || value > maximum) return false;
+    out = value;
+    return true;
+}
+
 bool flag(const std::vector<std::string>& a, std::string_view f) {
     for (const auto& s : a) if (s == f) return true;
     return false;
@@ -69,6 +84,19 @@ int cmd_index(const std::vector<std::string>& args) {
     const std::string& out = args[1];
 
     rag::index::CorpusConfig ccfg;
+    const std::string embed_batch = opt(args, "--embed-batch", "");
+    if (!embed_batch.empty() &&
+        !parse_bounded_size(embed_batch, 1, 256, ccfg.embed_batch)) {
+        std::printf("invalid --embed-batch: expected an integer from 1 to 256\n");
+        return 2;
+    }
+    std::size_t ollama_timeout_ms = 30'000;
+    const std::string timeout_option = opt(args, "--ollama-timeout-ms", "");
+    if (!timeout_option.empty() &&
+        !parse_bounded_size(timeout_option, 1'000, 600'000, ollama_timeout_ms)) {
+        std::printf("invalid --ollama-timeout-ms: expected an integer from 1000 to 600000\n");
+        return 2;
+    }
 
     if (flag(args, "--semantic"))
         ccfg.chunking = rag::index::CorpusConfig::Chunking::semantic;
@@ -92,7 +120,8 @@ int cmd_index(const std::vector<std::string>& args) {
                 {"host", "127.0.0.1"},
                 {"port", 11434},
                 {"model", "nomic-embed-text"},
-                {"dim", 768}
+                {"dim", 768},
+                {"timeout_ms", ollama_timeout_ms}
             });
 
         if (!embedder_result) {
