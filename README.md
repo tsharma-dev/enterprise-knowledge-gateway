@@ -29,6 +29,83 @@ The system is designed around one core principle:
 
 ---
 
+## Reproducible local quick start (Windows / PowerShell)
+
+This starts the retrieval gateway locally. It does not generate an LLM answer: it returns authorized retrieved passages and citations. The demo admin is trusted for cross-department reading.
+
+### Prerequisites
+
+- Visual Studio 2022 with the C++ desktop workload, CMake 3.24+, and Git.
+- MSYS2 UCRT64 tools used by the Windows build/tests; the commands below add `C:\msys64\usr\bin` and `C:\msys64\ucrt64\bin` to this PowerShell session's `PATH`.
+- PostgreSQL 17 installed at `C:\Program Files\PostgreSQL\17` (the current Windows CMake configuration uses this path).
+- Ollama running locally with `nomic-embed-text` available.
+
+### Build and create demo accounts
+
+From the repository root. Add the MSYS2 Unix tools (including `cat`, used by one test) and UCRT64 tools to this PowerShell session before configuring/building/testing:
+
+```powershell
+$env:Path = "C:\msys64\usr\bin;C:\msys64\ucrt64\bin;$env:Path"
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --config Release
+ctest --test-dir build -C Release --output-on-failure
+ollama pull nomic-embed-text
+```
+
+Create the demo PostgreSQL database and initialize its schema/accounts. `createdb` may prompt for the PostgreSQL administrator password. The setup SQL prompts separately for four application login passwords and stores only bcrypt hashes; choose passwords and save them securely.
+
+```powershell
+$env:Path = "C:\Program Files\PostgreSQL\17\bin;$env:Path"
+createdb -U postgres knowledge_gateway
+psql -U postgres -d knowledge_gateway -v ON_ERROR_STOP=1 -f .\database\setup.sql
+```
+
+Re-running the SQL resets the four demo account passwords and rotates their tokens. It leaves other usernames in the table unchanged.
+
+### Index the sample policy corpus
+
+Ollama must be running before indexing. The CSV's `department` and `role` columns are retained as authorization metadata; only `title` and `text` are embedded/indexed as content.
+
+```powershell
+ollama list
+.\build\cli\ragcpp.exe index `
+    .\evaluation\enterprise_documents.csv `
+    .\enterprise_eval.ragdb `
+    --csv-title=title --csv-id=id --csv-text=title,text `
+    --ollama
+```
+
+The expected summary is four documents indexed. The `.ragdb` file is local and ignored by Git.
+
+### Configure and start the server
+
+Set the PostgreSQL connection password in this PowerShell session (this is the PostgreSQL `postgres` account password, not an application login password):
+
+```powershell
+$env:RAG_DB_HOST = "127.0.0.1"
+$env:RAG_DB_PORT = "5432"
+$env:RAG_DB_NAME = "knowledge_gateway"
+$env:RAG_DB_USER = "postgres"
+$env:RAG_DB_PASSWORD = Read-Host "PostgreSQL password"
+.\build\cli\ragcpp_enterprise_server.exe
+```
+
+Keep this terminal open and browse to <http://localhost:8000>. Sign in using one of the usernames (`alice`, `bob`, `finance`, `admin`) and the application password you chose during SQL setup. The server serves the frontend and opens `enterprise_eval.ragdb` from the repository/current directory.
+
+### Try it
+
+- As `admin`, compare `salary information confidential`; the HR policy should be retrievable across departments.
+- As engineering user `alice`, search the same phrase; the HR policy must not appear.
+- The comparison endpoint is admin-only. On the four-document default corpus Dense uses exact cosine; HNSW is built only when the index reaches its configured 2,000-chunk threshold.
+
+For a clean restart, stop the server with Ctrl+C. To recreate the sample index, remove or move the ignored local `.ragdb` first and rerun the index command.
+
+### Linux/macOS note
+
+Install a C++23 toolchain, CMake, PostgreSQL client development files (`libpq-dev` on Ubuntu), and Ollama. Build/test with `cmake -S . -B build -DCMAKE_BUILD_TYPE=Release`, `cmake --build build -j`, and `ctest --test-dir build --output-on-failure`. Configure PostgreSQL environment variables as above, initialize `database/setup.sql`, index the CSV, then run the platform's enterprise server binary. On macOS, configure CMake with Homebrew libpq on its prefix path, e.g. `-DPostgreSQL_ROOT="$(brew --prefix libpq)"`.
+
+---
+
 # 🏗️ Architecture
 
 ```text
