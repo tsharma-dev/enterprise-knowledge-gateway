@@ -1,6 +1,6 @@
 # Private Enterprise Knowledge Gateway
 
-> A production-grade, permission-aware hybrid RAG platform built in modern C++23.
+> A permission-aware enterprise knowledge retrieval demo built in modern C++23.
 
 A secure enterprise knowledge retrieval system combining **hybrid lexical + semantic search, HNSW approximate nearest-neighbor retrieval, document-level authorization, PostgreSQL authentication, provenance-aware citations, REST APIs, administrative ingestion, and retrieval/security evaluation**.
 
@@ -108,67 +108,21 @@ Install a C++23 toolchain, CMake, PostgreSQL client development files (`libpq-de
 
 # 🏗️ Architecture
 
-```text
-                         ┌──────────────────────┐
-                         │        USER          │
-                         └──────────┬───────────┘
-                                    │
-                                    ▼
-                         ┌──────────────────────┐
-                         │    WEB FRONTEND      │
-                         │      HTML/CSS/JS     │
-                         └──────────┬───────────┘
-                                    │
-                                  REST
-                                    │
-                                    ▼
-                         ┌──────────────────────┐
-                         │ ENTERPRISE GATEWAY   │
-                         │        C++23         │
-                         └──────────┬───────────┘
-                                    │
-                                    ▼
-                         ┌──────────────────────┐
-                         │     POSTGRESQL       │
-                         │    AUTHENTICATION    │
-                         └──────────┬───────────┘
-                                    │
-                              User Context
-                                    │
-                                    ▼
-                         ┌──────────────────────┐
-                         │   AUTHORIZATION      │
-                         │       POLICY         │
-                         │                      │
-                         │ Department + Role    │
-                         └──────────┬───────────┘
-                                    │
-                              Metadata Filter
-                                    │
-                                    ▼
-              ┌────────────────────────────────────────┐
-              │             RAG RETRIEVAL              │
-              │                                        │
-              │       ┌───────────────┐                │
-              │       │      BM25     │                │
-              │       └───────┬───────┘                │
-              │               │                         │
-              │               ├──► HYBRID FUSION       │
-              │               │                         │
-              │       ┌───────▼───────┐                │
-              │       │ DENSE / HNSW  │                │
-              │       └───────────────┘                │
-              └────────────────────┬───────────────────┘
-                                   │
-                                   ▼
-                         ┌──────────────────────┐
-                         │     PROVENANCE       │
-                         │                      │
-                         │ Source               │
-                         │ Chunk                │
-                         │ Score                │
-                         │ Line Range           │
-                         └──────────────────────┘
+```mermaid
+flowchart TD
+    U[User] --> W[Web interface]
+    W --> G[C++ enterprise gateway]
+    G --> A[Authenticate with PostgreSQL]
+    A --> P[Build department and role access filter]
+    P --> B[BM25 keyword retrieval]
+    P --> E[Embed query]
+    E --> H[Dense retrieval with HNSW]
+    B --> R[Hybrid RRF ranking]
+    H --> R
+    B --> C[Compare rankings, overlap, and latency]
+    H --> C
+    R --> C
+    C --> S[Return ranked passages and source citations]
 ```
 
 ---
@@ -298,11 +252,11 @@ and gaining access to finance information.
 
 # 🧠 Hybrid Retrieval
 
-The retrieval pipeline combines lexical and semantic search.
+The comparison dashboard runs the same query through three retrieval paths. Each path applies the authenticated user document-access filter.
 
-## BM25
+## BM25 (keyword search)
 
-BM25 provides strong lexical matching for queries containing:
+BM25 ranks passages by how well their terms match the query. It is useful for exact names, phrases, identifiers, and numbers. Its scores are ranking scores, not probabilities.
 
 - Exact terminology
 - Names
@@ -310,9 +264,9 @@ BM25 provides strong lexical matching for queries containing:
 - Numbers
 - Technical keywords
 
-## Dense Retrieval
+## Dense (semantic search with HNSW)
 
-Dense retrieval uses vector embeddings to identify semantically related content even when the wording differs.
+Dense retrieval converts queries and passages into embeddings, then HNSW searches the vector index for nearby meanings. It can find relevant passages with different wording. The displayed cosine score measures vector similarity. HNSW is approximate, trading some exactness for faster nearest-neighbor search at scale.
 
 The semantic pipeline uses:
 
@@ -329,9 +283,9 @@ Dense Embedding
 HNSW Search
 ```
 
-## Hybrid Retrieval
+## Hybrid (Reciprocal Rank Fusion)
 
-The hybrid retrieval path combines:
+Hybrid combines BM25 and dense rankings using Reciprocal Rank Fusion (RRF). For each passage, it adds 1 / (k + rank) from each list where the passage appears; this project uses k = 60. A passage ranked first in both lists scores 2 / 61, about 0.03279. RRF combines ranks, not raw BM25 and cosine scores. Compare scores within their own lane; use rank positions and overlap to see where the methods agree.
 
 ```text
         Query
@@ -966,7 +920,7 @@ CSV columns can also be represented as filterable metadata.
 
 ---
 
-# 💡 Why Permission-Aware RAG?
+# 💡 Why Permission-Aware Retrieval?
 
 Traditional RAG pipelines generally focus on:
 
@@ -993,8 +947,10 @@ Retrieve relevant documents
    ↓
 Attach provenance
    ↓
-Generate grounded response
+Return retrieved passages with source citations
 ```
+
+This project returns retrieved passages and source citations; it does not generate an LLM-written answer.
 
 This architecture treats **security as part of knowledge retrieval**, rather than as a separate UI concern.
 
