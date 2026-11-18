@@ -427,6 +427,36 @@ Administrative users can upload additional documents to the knowledge base.
 
 ---
 
+# 📸 Screenshots
+
+These screenshots show the main workflow: an administrator uploads a document with an HR-only access policy, compares three retrieval strategies, and verifies that an Engineering employee cannot retrieve that document.
+
+### Sign in and admin dashboard
+
+The sign-in screen leads to the administrator dashboard, which includes document management and retrieval comparison.
+
+![Enterprise Knowledge Gateway sign-in page](docs/images/dashboard1.png)
+
+![Admin dashboard showing document management and retrieval comparison](docs/images/dashboard2.png)
+
+![Admin dashboard showing service status and comparison query form](docs/images/dashboard3.png)
+
+### Upload and compare retrieval strategies
+
+The administrator uploads hr-manager-juniper.txt with Department set to HR and Role set to Manager. After indexing succeeds, the comparison shows the document in Dense, BM25, and Hybrid results for the query “Project Juniper.”
+
+![Admin uploading the HR Manager document with HR and Manager access tags](docs/images/retrieval-comparison1.png)
+
+![Successful indexing of hr-manager-juniper.txt with HR and Manager tags](docs/images/retrieval-comparison2.png)
+
+![Admin comparison results for Project Juniper across Dense, BM25, and Hybrid](docs/images/retrieval-comparison3.png)
+
+### Verify employee access filtering
+
+Alice is signed in with Engineering access and searches for the same phrase. The HR Manager document does not appear; the visible results are Engineering and Public documents.
+
+![Alice searching Project Juniper with Engineering access; the HR Manager document is not returned](docs/images/authorization-check.png)
+
 # 🛡️ Security Demonstration
 
 The same question can produce different results depending on the authenticated user's permissions.
