@@ -442,6 +442,7 @@ void HnswIndex::connect_locked(std::uint32_t node, int layer,
     thread_local std::vector<std::pair<float, std::uint32_t>> scored;
     thread_local std::vector<std::uint32_t>                   keep;
     thread_local std::vector<std::uint32_t>                   snapshot;
+    thread_local std::vector<std::uint32_t>                   pruned;
 
     // Rank candidates by similarity to `node`, then apply the diversity
     // heuristic. This read-only scoring needs no locks: vectors are immutable
@@ -458,31 +459,37 @@ void HnswIndex::connect_locked(std::uint32_t node, int layer,
         locks[node].unlock();
     }
 
-    // Add back-links, pruning each neighbour to its own maxM. Each neighbour is
-    // locked individually and only for the duration of its own edit.
+    // Add back-links, pruning each neighbour to its own maxM with the same
+    // heuristic so the reverse edges stay diverse too.
     for (std::uint32_t nb : keep) {
-        locks[nb].lock();
         auto& NL = nodes_[nb].links[L];
-        if (std::find(NL.begin(), NL.end(), node) == NL.end()) NL.push_back(node);
-        const bool over = NL.size() > maxM;
-        if (over) snapshot.assign(NL.begin(), NL.end());
-        locks[nb].unlock();
-        if (!over) continue;
 
-        // Prune outside the lock — scoring maxM+1 candidates against each other
-        // is O(M²) dot products, far too long to hold a spinlock that readers
-        // and other writers are contending for.
-        score_and_sort(nb, snapshot, scored);
-        thread_local std::vector<std::uint32_t> pruned;
-        select_neighbours_heuristic_into(scored, maxM,
-                [&](std::uint32_t a, std::uint32_t b) { return sim_nodes(a, b); }, pruned);
-        locks[nb].lock();
-        auto& NL2 = nodes_[nb].links[L];
-        // Re-check under the lock: another thread may have pruned already, and
-        // anything it appended meanwhile must not be silently dropped, so only
-        // overwrite when our pruned set still covers the current size.
-        if (NL2.size() > maxM) NL2.assign(pruned.begin(), pruned.end());  // in place: capacity is stable
-        locks[nb].unlock();
+        // A neighbour may receive back-links from several build workers while
+        // this thread scores a snapshot. Only publish a prune if the adjacency
+        // is still exactly that snapshot; otherwise retry with the latest list
+        // so concurrent links are never silently discarded.
+        for (;;) {
+            locks[nb].lock();
+            if (std::find(NL.begin(), NL.end(), node) == NL.end())
+                NL.push_back(node);
+            if (NL.size() <= maxM) {
+                locks[nb].unlock();
+                break;
+            }
+            snapshot.assign(NL.begin(), NL.end());
+            locks[nb].unlock();
+
+            score_and_sort(nb, snapshot, scored);
+            select_neighbours_heuristic_into(scored, maxM,
+                    [&](std::uint32_t a, std::uint32_t b) { return sim_nodes(a, b); }, pruned);
+
+            locks[nb].lock();
+            auto& current = nodes_[nb].links[L];
+            const bool unchanged = current == snapshot;
+            if (unchanged) current.assign(pruned.begin(), pruned.end());
+            locks[nb].unlock();
+            if (unchanged) break;
+        }
     }
 }
 
