@@ -33,16 +33,29 @@ The system is designed around one core principle:
 
 This starts the retrieval gateway locally. It does not generate an LLM answer: it returns authorized retrieved passages and citations. The demo admin is trusted for cross-department reading.
 
+### Get the code
+
+Clone the repository and enter its root folder:
+
+```powershell
+git clone https://github.com/tsharma-dev/enterprise-knowledge-gateway.git
+Set-Location enterprise-knowledge-gateway
+```
+
+Run the remaining commands from this repository root.
+
 ### Prerequisites
 
 - Visual Studio 2022 with the C++ desktop workload, CMake 3.24+, and Git.
 - MSYS2 UCRT64 tools used by the Windows build/tests; the commands below add `C:\msys64\usr\bin` and `C:\msys64\ucrt64\bin` to this PowerShell session's `PATH`.
 - PostgreSQL 17 installed at `C:\Program Files\PostgreSQL\17` (the current Windows CMake configuration uses this path).
 - Ollama running locally with `nomic-embed-text` available.
+- Ensure the PostgreSQL 17 Windows service postgresql-x64-17 is running; start it from Windows Services if it is stopped.
+- If the Ollama desktop app is not already serving requests, start ollama serve in a separate terminal.
 
 ### Build and create demo accounts
 
-From the repository root. Add the MSYS2 Unix tools (including `cat`, used by one test) and UCRT64 tools to this PowerShell session before configuring/building/testing:
+From the repository root, add the MSYS2 Unix tools (including `cat`, used by one test) and UCRT64 tools to this PowerShell session before configuring/building/testing:
 
 ```powershell
 $env:Path = "C:\msys64\usr\bin;C:\msys64\ucrt64\bin;$env:Path"
@@ -52,7 +65,7 @@ ctest --test-dir build -C Release --output-on-failure
 ollama pull nomic-embed-text
 ```
 
-Create the demo PostgreSQL database and initialize its schema/accounts. `createdb` may prompt for the PostgreSQL administrator password. The setup SQL prompts separately for four application login passwords and stores only bcrypt hashes; choose passwords and save them securely.
+Create the demo PostgreSQL database and initialize its schema/accounts. The database command may prompt for the PostgreSQL administrator password. There is no public registration screen: database/setup.sql provisions the four demo accounts and prompts you to set each application password. For this local demo, enter the demo passwords listed below when prompted. These public demo credentials are for local demonstration only. Do not reuse them for real accounts or expose a server that accepts them to an untrusted network. PostgreSQL stores bcrypt password hashes, not plaintext passwords.
 
 ```powershell
 $env:Path = "C:\Program Files\PostgreSQL\17\bin;$env:Path"
@@ -61,6 +74,15 @@ psql -U postgres -d knowledge_gateway -v ON_ERROR_STOP=1 -f .\database\setup.sql
 ```
 
 Re-running the SQL resets the four demo account passwords and rotates their tokens. It leaves other usernames in the table unchanged.
+
+### Demo login accounts
+
+| Username | Demo password | Access scope |
+|---|---|---|
+| alice | alicepw | Engineering employee |
+| bob | bobpw | HR employee |
+| finance | financepw | Finance employee |
+| admin | adminpw | Trusted cross-department administrator |
 
 ### Index the sample policy corpus
 
@@ -90,7 +112,7 @@ $env:RAG_DB_PASSWORD = Read-Host "PostgreSQL password"
 .\build\cli\ragcpp_enterprise_server.exe
 ```
 
-Keep this terminal open and browse to <http://localhost:8000>. Sign in using one of the usernames (`alice`, `bob`, `finance`, `admin`) and the application password you chose during SQL setup. The server serves the frontend and opens `enterprise_eval.ragdb` from the repository/current directory.
+Keep this terminal open and browse to http://localhost:8000. Sign in with one of the demo accounts and password listed below. The server opens enterprise_eval.ragdb using the repository/current-directory path. Start it from the repository root; hnsw-demo-small has a separate benchmark database and corpus.
 
 ### Try it
 
@@ -102,7 +124,46 @@ For a clean restart, stop the server with Ctrl+C. To recreate the sample index, 
 
 ### Linux/macOS note
 
-Install a C++23 toolchain, CMake, PostgreSQL client development files (`libpq-dev` on Ubuntu), and Ollama. Build/test with `cmake -S . -B build -DCMAKE_BUILD_TYPE=Release`, `cmake --build build -j`, and `ctest --test-dir build --output-on-failure`. Configure PostgreSQL environment variables as above, initialize `database/setup.sql`, index the CSV, then run the platform's enterprise server binary. On macOS, configure CMake with Homebrew libpq on its prefix path, e.g. `-DPostgreSQL_ROOT="$(brew --prefix libpq)"`.
+Install a C++23 toolchain, CMake, Git, a PostgreSQL server with client development files, and Ollama. Start the PostgreSQL and Ollama services. If Ollama is not already running, use ollama serve in a separate terminal.
+
+Configure and build. On Linux:
+
+```sh
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+```
+
+On macOS, pass Homebrew libpq to CMake:
+
+```sh
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DPostgreSQL_ROOT="$(brew --prefix libpq)"
+```
+
+Build and run tests, then initialize and launch the demo:
+
+```sh
+cmake --build build -j
+ctest --test-dir build --output-on-failure
+ollama pull nomic-embed-text
+createdb -U postgres knowledge_gateway
+psql -U postgres -d knowledge_gateway -v ON_ERROR_STOP=1 -f database/setup.sql
+./build/cli/ragcpp index evaluation/enterprise_documents.csv enterprise_eval.ragdb --csv-title=title --csv-id=id --csv-text=title,text --ollama
+```
+
+Set the PostgreSQL connection variables in the same shell before starting the server. For bash/zsh:
+
+```sh
+export RAG_DB_HOST=127.0.0.1
+export RAG_DB_PORT=5432
+export RAG_DB_NAME=knowledge_gateway
+export RAG_DB_USER=postgres
+printf "PostgreSQL password: "
+IFS= read -r -s RAG_DB_PASSWORD
+printf '\n'
+export RAG_DB_PASSWORD
+./build/cli/ragcpp_enterprise_server
+```
+
+The local PostgreSQL role must accept TCP password connections. If your installation uses a different administrator role, use that role for database setup and set RAG_DB_USER to the same role.
 
 ---
 
